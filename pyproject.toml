@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "spectacles"
+version = "0.1.0"
+description = "API for a clearer look at clarity"
+authors = ["Johannes Alneberg"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+uvicorn = "^0.27.0.post1"
+fastapi = "^0.109.2"
+python-jose = {extras = ["cryptography"], version = "^3.3.0"}
+passlib = "^1.7.4"
+python-multipart = "^0.0.7"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
