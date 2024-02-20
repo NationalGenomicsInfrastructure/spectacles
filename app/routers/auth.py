@@ -95,9 +95,10 @@ async def get_current_client(token: Annotated[str, Depends(oauth2_scheme)]):
         payload = jwt.decode(
             token, config_values.SECRET_KEY, algorithms=[config_values.ALGORITHM]
         )
-        client_id: str = payload.get("sub")
-        if client_id is None:
+        client_id = payload.get("sub")
+        if client_id is None or not isinstance(client_id, str):
             raise credentials_exception
+
         token_data = TokenData(client_id=client_id)
     except JWTError:
         raise credentials_exception
