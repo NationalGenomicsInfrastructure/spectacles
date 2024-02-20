@@ -1,5 +1,4 @@
 from datetime import datetime, timedelta, timezone
-import os
 from typing import Annotated
 
 
@@ -9,21 +8,9 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel
 
-# to get a string like this run:
-# openssl rand -hex 32
+from ..config import config_values
 
-# Fetch environmental variables
-SECRET_KEY = os.getenv("SPECTACLES_SECRET_KEY")
-ALGORITHM = os.getenv("SPECTACLES_ALGORITHM")
-
-if not SECRET_KEY or not ALGORITHM:
-    raise ValueError(
-        "SPECTACLES_SECRET_KEY and SPECTACLES_ALGORITHM must be set as environmental variables"
-    )
-
-ACCESS_TOKEN_EXPIRE_MINUTES = 90
-
-
+# TODO, this is not a database
 clients_db = {
     "first_client": {
         "disabled": False,
@@ -92,7 +79,9 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     else:
         expire = datetime.now(timezone.utc) + timedelta(minutes=15)
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    encoded_jwt = jwt.encode(
+        to_encode, config_values.SECRET_KEY, algorithm=config_values.ALGORITHM
+    )
     return encoded_jwt
 
 
@@ -103,7 +92,9 @@ async def get_current_client(token: Annotated[str, Depends(oauth2_scheme)]):
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(
+            token, config_values.SECRET_KEY, algorithms=[config_values.ALGORITHM]
+        )
         client_id: str = payload.get("sub")
         if client_id is None:
             raise credentials_exception
@@ -139,7 +130,7 @@ async def login_for_access_token(
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token_expires = timedelta(minutes=config_values.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": client.client_id}, expires_delta=access_token_expires
     )

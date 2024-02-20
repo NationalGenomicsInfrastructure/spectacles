@@ -1,8 +1,6 @@
-import dotenv
 from fastapi import FastAPI
 
-dotenv.load_dotenv()
-
+# from config import config_values
 from .routers import auth
 
 
