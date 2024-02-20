@@ -14,3 +14,8 @@ repos:
     rev: "v4.0.0-alpha.8"
     hooks:
       - id: prettier
+  - repo: https://github.com/floatingpurr/sync_with_poetry
+    rev: "" # the revision or tag to clone at
+    hooks:
+      - id: sync_with_poetry
+        args: [] # optional args
