@@ -12,10 +12,16 @@ RUN pip install --no-cache-dir poetry
 
 # Use Poetry to install dependencies
 RUN poetry config virtualenvs.create false \
-    && poetry install --no-interaction --no-ansi
+    && poetry install --no-interaction --no-ansi --without=dev
 
 # Make port 8000 available to the world outside this container
 EXPOSE 8000
+
+FROM base AS development
+
+# Use Poetry to install dependencies
+RUN poetry config virtualenvs.create false \
+    && poetry install --with=dev --no-interaction --no-ansi
 
 FROM base AS main
 # Not meant for production.

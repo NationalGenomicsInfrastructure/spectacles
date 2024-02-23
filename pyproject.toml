@@ -14,9 +14,14 @@ python-jose = {extras = ["cryptography"], version = "^3.3.0"}
 passlib = "^1.7.4"
 python-multipart = "^0.0.7"
 python-dotenv = "^1.0.1"
+mypy = "^1.8.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
+pre-commit = "^3.6.2"
+ruff = "^0.2.2"
+types-python-jose = "^3.3.4.20240106"
+types-passlib = "^1.7.7.20240106"
 
 [build-system]
 requires = ["poetry-core"]

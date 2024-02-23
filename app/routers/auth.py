@@ -1,5 +1,4 @@
 from datetime import datetime, timedelta, timezone
-import os
 from typing import Annotated
 
 
@@ -9,22 +8,17 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel
 
-# to get a string like this run:
-# openssl rand -hex 32
+from ..config import config_values
 
-# Fetch environmental variables
-SECRET_KEY = os.getenv("SPECTACLES_SECRET_KEY")
-ALGORITHM = os.getenv("SPECTACLES_ALGORITHM")
-
-if not SECRET_KEY or not ALGORITHM:
-    raise ValueError("SPECTACLES_SECRET_KEY and SPECTACLES_ALGORITHM must be set as environmental variables")
-
-ACCESS_TOKEN_EXPIRE_MINUTES = 90
-
-
+# TODO, this is not a database
 clients_db = {
-    "first_client": {"disabled": False, "client_id": "first_client", "client_secret_hashed": "$2b$12$Yqwzj50q0.5brgJAYwOIEO1l10tdgStMZEB41HwRMFzU/h5wuDsh."}
+    "first_client": {
+        "disabled": False,
+        "client_id": "first_client",
+        "client_secret_hashed": "$2b$12$Yqwzj50q0.5brgJAYwOIEO1l10tdgStMZEB41HwRMFzU/h5wuDsh.",
+    }
 }
+
 
 class Token(BaseModel):
     access_token: str
@@ -34,14 +28,17 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     client_id: str | None = None
 
+
 class Client(BaseModel):
     """Client without the hashed secret, more suitable to view"""
+
     client_id: str
     disabled: bool | None = None
 
 
 class ClientInDB(Client):
     """Client with hashed secret"""
+
     client_secret_hashed: str
 
 
@@ -59,10 +56,12 @@ def verify_client_secret(plain_secret, hashed_secret):
 def get_secret_hash(secret):
     return secret_context.hash(secret)
 
+
 def get_client(db, client_id: str):
     if client_id in db:
         client_dict = db[client_id]
         return ClientInDB(**client_dict)
+
 
 def authenticate_client(clients_db, client_id: str, client_secret: str):
     client: ClientInDB = get_client(clients_db, client_id)
@@ -80,7 +79,9 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     else:
         expire = datetime.now(timezone.utc) + timedelta(minutes=15)
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    encoded_jwt = jwt.encode(
+        to_encode, config_values.SECRET_KEY, algorithm=config_values.ALGORITHM
+    )
     return encoded_jwt
 
 
@@ -91,15 +92,20 @@ async def get_current_client(token: Annotated[str, Depends(oauth2_scheme)]):
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        client_id: str = payload.get("sub")
-        if client_id is None:
+        payload = jwt.decode(
+            token, config_values.SECRET_KEY, algorithms=[config_values.ALGORITHM]
+        )
+        client_id = payload.get("sub")
+        if client_id is None or not isinstance(client_id, str):
             raise credentials_exception
+
         token_data = TokenData(client_id=client_id)
     except JWTError:
         raise credentials_exception
 
     # If we get this far, the token is valid
+    if token_data.client_id is None:
+        raise credentials_exception
     client = get_client(clients_db, client_id=token_data.client_id)
     if client is None:
         raise credentials_exception
@@ -107,7 +113,7 @@ async def get_current_client(token: Annotated[str, Depends(oauth2_scheme)]):
 
 
 async def get_current_active_client(
-    current_client: Annotated[Client, Depends(get_current_client)]
+    current_client: Annotated[Client, Depends(get_current_client)],
 ):
     if current_client.disabled:
         raise HTTPException(status_code=400, detail="Inactive user")
@@ -116,7 +122,7 @@ async def get_current_active_client(
 
 @router.post("/token")
 async def login_for_access_token(
-    form_data: Annotated[OAuth2PasswordRequestForm, Depends()]
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
 ) -> Token:
     client = authenticate_client(clients_db, form_data.username, form_data.password)
     if not client:
@@ -125,7 +131,7 @@ async def login_for_access_token(
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token_expires = timedelta(minutes=config_values.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": client.client_id}, expires_delta=access_token_expires
     )
@@ -134,13 +140,13 @@ async def login_for_access_token(
 
 @router.get("/users/me/", response_model=Client)
 async def read_users_me(
-    current_client: Annotated[Client, Depends(get_current_active_client)]
+    current_client: Annotated[Client, Depends(get_current_active_client)],
 ):
     return current_client
 
 
 @router.get("/users/me/items/")
 async def read_own_items(
-    current_client: Annotated[Client, Depends(get_current_active_client)]
+    current_client: Annotated[Client, Depends(get_current_active_client)],
 ):
     return [{"item_id": "Foo", "owner": current_client.client_id}]
